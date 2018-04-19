@@ -157,6 +157,10 @@ Plane::Plane(vector<Point> copy) {
     points = copy;
 }
 
+const Point& Plane::operator[](int i) const {
+    return points[i];
+}
+
 int Plane::partition(int p, int r, CompareBy compareBy) {
     Point x = points[r];
     int i = p - 1;
