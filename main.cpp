@@ -47,19 +47,19 @@ class Plane {
     int size;
     int partition(int p, int r, CompareBy compareBy);
     void quickSort(int p, int r, CompareBy compareBy);
+    double distance(const Point& a, const Point& b) const;
+    double distanceByPairwiseCompare() const;
+    double distanceClosestPairRec3D(const Plane &px) const;
+    double distanceClosestPairRec2D(const Plane &py) const;
   public:
     Plane(const vector<Point> &copy);
     Plane(const Plane& copy, Divide div);
     const Point& operator[](int i) const;
     int getSize() const;
     void sort(CompareBy compareBy);
+    double distanceClosestPair() const;
 };
 
-double distance(const Point& a, const Point& b);
-double distanceByPairwiseCompare(const vector<Point> &points);
-double distanceClosestPair(const vector<Point> &points);
-double distanceClosestPairRec3D(const Plane &px);
-double distanceClosestPairRec2D(const Plane &py);
 int calcCounter = 0;
 
 int main(int argc, const char * argv[]) {
@@ -112,12 +112,11 @@ int main(int argc, const char * argv[]) {
     // Close the input file since it is no longer needed
     inputFile.close();
     
+    Plane allPoints(points);
+    
     using namespace chrono;
-    
     auto functionStart = high_resolution_clock::now(); // Begin time stamp
-    
-    double distance = distanceClosestPair(points);
-    
+    double distance = allPoints.distanceClosestPair();
     auto functionEnd = high_resolution_clock::now(); // End time stamp
     
     // Get the elapsed time in unit microseconds
@@ -239,7 +238,7 @@ int Plane::getSize() const {
     return size;
 }
 
-double distance(const Point &a, const Point &b) {
+double Plane::distance(const Point &a, const Point &b) const {
     double X = pow(a.getX() - b.getX(),2);
     double Y = pow(a.getY() - b.getY(),2);
     double Z = pow(a.getZ() - b.getZ(),2);
@@ -247,8 +246,7 @@ double distance(const Point &a, const Point &b) {
     return sqrt(X+Y+Z);
 }
 
-double distanceByPairwiseCompare(const Plane &points) {
-    int size = points.getSize();
+double Plane::distanceByPairwiseCompare() const {
     double min = numeric_limits<double>::max();
     double d = 0;
     
@@ -262,15 +260,15 @@ double distanceByPairwiseCompare(const Plane &points) {
     return min;
 }
 
-double distanceClosestPair(const vector<Point> &points) {
+double Plane::distanceClosestPair() const {
     Plane px(points);
     px.sort(COMPARE_BY_X);
     return distanceClosestPairRec3D(px);
 }
 
-double distanceClosestPairRec3D(const Plane &px) {
+double Plane::distanceClosestPairRec3D(const Plane &px) const {
     if (px.getSize() <= 3)
-        return distanceByPairwiseCompare(px);
+        return px.distanceByPairwiseCompare();
     
     Plane qx(px, LEFT);
     Plane rx(px, RIGHT);
@@ -298,9 +296,9 @@ double distanceClosestPairRec3D(const Plane &px) {
     return dist;
 }
 
-double distanceClosestPairRec2D(const Plane &py) {
+double Plane::distanceClosestPairRec2D(const Plane &py) const {
     if (py.getSize() <= 3)
-        return distanceByPairwiseCompare(py);
+        return py.distanceByPairwiseCompare();
     
     Point middle = py[py.getSize() / 2];
     
