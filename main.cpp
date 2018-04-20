@@ -12,7 +12,7 @@
 #include <cmath>    // pow, sqrt
 #include <fstream>  // ifstream
 #include <iostream> // cout
-#include <iomanip>  // setw
+#include <iomanip>  // setprecision
 #include <sstream>  // stringstrem
 #include <string>   // string
 #include <vector>   // vector
@@ -22,6 +22,10 @@ using namespace std;
 typedef enum CompareBy {
     NONE = 0, COMPARE_BY_X, COMPARE_BY_Y, COMPARE_BY_Z
 } CompareBy;
+
+typedef enum Divide {
+    LEFT = 0, RIGHT
+} Divide;
 
 class Point {
   private:
@@ -40,13 +44,23 @@ class Point {
 class Plane {
   private:
     vector<Point> points;
+    int size;
     int partition(int p, int r, CompareBy compareBy);
     void quickSort(int p, int r, CompareBy compareBy);
   public:
-    Plane(vector<Point> copy);
+    Plane(const vector<Point> &copy);
+    Plane(const Plane& copy, Divide div);
     const Point& operator[](int i) const;
+    int getSize() const;
     void sort(CompareBy compareBy);
 };
+
+double distance(const Point& a, const Point& b);
+double distanceByPairwiseCompare(const vector<Point> &points);
+double distanceClosestPair(const vector<Point> &points);
+double distanceClosestPairRec3D(const Plane &px);
+double distanceClosestPairRec2D(const Plane &py);
+int calcCounter = 0;
 
 int main(int argc, const char * argv[]) {
     // Input file name argument must be passed with run command
@@ -77,7 +91,7 @@ int main(int argc, const char * argv[]) {
         // If line is empty, no need to take action
         if(line.empty()) break;
         
-        // Create stringstream to parse with '\t'
+        // Create stringstream to parse with space ' '
         stringstream linestream(line);
         
         string read[3];
@@ -98,8 +112,20 @@ int main(int argc, const char * argv[]) {
     // Close the input file since it is no longer needed
     inputFile.close();
     
-    cout << "The distance is " << endl;
-    cout << "Number of total distance calculations is " << endl;
+    using namespace chrono;
+    
+    auto functionStart = high_resolution_clock::now(); // Begin time stamp
+    
+    double distance = distanceClosestPair(points);
+    
+    auto functionEnd = high_resolution_clock::now(); // End time stamp
+    
+    // Get the elapsed time in unit microseconds
+    float elapsedTime = duration_cast<milliseconds>(functionEnd - functionStart).count();
+    
+    cout << "The distance is " << setprecision(6) << distance << endl;
+    cout << "Number of total distance calculations is " << calcCounter << endl;
+    cout << "Elapsed time is " << elapsedTime << " milliseconds" << endl;
     return 0;
 }
 
@@ -153,8 +179,24 @@ int Point::compare(const Point& a, CompareBy compareBy) const {
     }
 }
 
-Plane::Plane(vector<Point> copy) {
+Plane::Plane(const vector<Point> &copy) {
     points = copy;
+    size = static_cast<int>(copy.size());
+}
+
+Plane::Plane(const Plane &copy, Divide divideBy) {
+    if (divideBy == LEFT) {
+        size = ceil(static_cast<double>(copy.getSize()) / 2);
+        for (int i = 0; i < size; i++) {
+            points.push_back(copy[i]);
+        }
+    } else {
+        int copySize = copy.getSize();
+        size = floor(static_cast<double>(copySize) / 2);
+        for (int i = size; i < copySize; i++) {
+            points.push_back(copy[i]);
+        }
+    }
 }
 
 const Point& Plane::operator[](int i) const {
@@ -190,13 +232,100 @@ void Plane::quickSort(int p, int r, CompareBy compareBy) {
 }
 
 void Plane::sort(CompareBy compareBy) {
-    int size = static_cast<int>(points.size()) - 1;
-    quickSort(0, size, compareBy);
+    quickSort(0, size-1, compareBy);
 }
 
-double distance(Point a, Point b) {
+int Plane::getSize() const {
+    return size;
+}
+
+double distance(const Point &a, const Point &b) {
     double X = pow(a.getX() - b.getX(),2);
     double Y = pow(a.getY() - b.getY(),2);
     double Z = pow(a.getZ() - b.getZ(),2);
+    calcCounter++;
     return sqrt(X+Y+Z);
+}
+
+double distanceByPairwiseCompare(const Plane &points) {
+    int size = points.getSize();
+    double min = numeric_limits<double>::max();
+    double d = 0;
+    
+    for(int i = 0; i < size - 1; i++) {
+        for (int j = i+1; j < size; j++) {
+            d = distance(points[i], points[j]);
+            if (d < min)
+                min = d;
+        }
+    }
+    return min;
+}
+
+double distanceClosestPair(const vector<Point> &points) {
+    Plane px(points);
+    px.sort(COMPARE_BY_X);
+    return distanceClosestPairRec3D(px);
+}
+
+double distanceClosestPairRec3D(const Plane &px) {
+    if (px.getSize() <= 3)
+        return distanceByPairwiseCompare(px);
+    
+    Plane qx(px, LEFT);
+    Plane rx(px, RIGHT);
+    
+    Point middle = px[px.getSize()/2];
+    
+    double dl = distanceClosestPairRec3D(qx);
+    double dr = distanceClosestPairRec3D(rx);
+    double dist = dr < dl ? dr : dl;
+    
+    vector<Point> S;
+    for (int i = 0; i < px.getSize(); i++) {
+        if(abs(px[i].getX() - middle.getX()) < dist)
+            S.push_back(px[i]);
+    }
+    
+    Plane strip(S);
+    strip.sort(COMPARE_BY_Y);
+    
+    double distance2D = distanceClosestPairRec2D(strip);
+    
+    if(dist > distance2D)
+        return distance2D;
+    
+    return dist;
+}
+
+double distanceClosestPairRec2D(const Plane &py) {
+    if (py.getSize() <= 3)
+        return distanceByPairwiseCompare(py);
+    
+    Point middle = py[py.getSize() / 2];
+    
+    Plane qy(py, LEFT);
+    Plane ry(py, RIGHT);
+    
+    double dl = distanceClosestPairRec2D(qy);
+    double dr = distanceClosestPairRec2D(ry);
+    double dist = dr < dl ? dr : dl;
+    
+    vector<Point> S;
+    for (int i = 0; i < py.getSize(); i++) {
+        if(abs(py[i].getY()-middle.getY()) < dist)
+            S.push_back(py[i]);
+    }
+    
+    Plane strip(S);
+    strip.sort(COMPARE_BY_Z);
+    int stripSize = strip.getSize();
+    for (int i = 0; i < stripSize; i++) {
+        for (int j = i+1; j < stripSize && (strip[j].getZ() - strip[i].getZ() < dist); j++) {
+            double compare = distance(strip[i], strip[j]);
+            if(compare < dist)
+                dist = compare;
+        }
+    }
+    return dist;
 }
