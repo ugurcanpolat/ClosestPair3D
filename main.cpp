@@ -147,9 +147,9 @@ int Point::getZ() const {
 }
 
 int Point::compare(const Point& a, CompareBy compareBy) const {
-    int aX = a.getX();
-    int aY = a.getY();
-    int aZ = a.getZ();
+    int aX = a.getX(); // Get compare point's x value
+    int aY = a.getY(); // Get compare point's y value
+    int aZ = a.getZ(); // Get compare point's z value
     
     switch (compareBy) {
         case COMPARE_BY_X:
@@ -184,12 +184,12 @@ Plane::Plane(const vector<Point> &copy) {
 }
 
 Plane::Plane(const Plane &copy, Divide divideBy) {
-    if (divideBy == LEFT) {
+    if (divideBy == LEFT) { // Left part of the plane
         size = ceil(static_cast<double>(copy.getSize()) / 2);
         for (int i = 0; i < size; i++) {
             points.push_back(copy[i]);
         }
-    } else {
+    } else { // Right part of the plane
         int copySize = copy.getSize();
         size = floor(static_cast<double>(copySize) / 2);
         for (int i = size; i < copySize; i++) {
@@ -203,6 +203,8 @@ const Point& Plane::operator[](int i) const {
 }
 
 int Plane::partition(int p, int r, CompareBy compareBy) {
+    // Partition function for quick sort implementation
+    
     Point x = points[r];
     int i = p - 1;
     
@@ -223,6 +225,8 @@ int Plane::partition(int p, int r, CompareBy compareBy) {
 }
 
 void Plane::quickSort(int p, int r, CompareBy compareBy) {
+    // compareBy is used to determine sorting by x, y or z
+    
     if (p < r) {
         int q = partition(p, r, compareBy);
         quickSort(p, q-1, compareBy);
@@ -239,6 +243,7 @@ int Plane::getSize() const {
 }
 
 double Plane::distance(const Point &a, const Point &b) const {
+    // Finds distance between two points
     double X = pow(a.getX() - b.getX(),2);
     double Y = pow(a.getY() - b.getY(),2);
     double Z = pow(a.getZ() - b.getZ(),2);
@@ -247,6 +252,9 @@ double Plane::distance(const Point &a, const Point &b) const {
 }
 
 double Plane::distanceByPairwiseCompare() const {
+    // This function finds distance between at most 3 points with
+    // brute force approach.
+    
     double min = numeric_limits<double>::max();
     double d = 0;
     
@@ -261,69 +269,82 @@ double Plane::distanceByPairwiseCompare() const {
 }
 
 double Plane::distanceClosestPair() const {
+    // Finds distance between closest pair
+    
     Plane px(points);
-    px.sort(COMPARE_BY_X);
+    px.sort(COMPARE_BY_X); // Sort by X coordinates
     return distanceClosestPairRec3D(px);
 }
 
 double Plane::distanceClosestPairRec3D(const Plane &px) const {
-    if (px.getSize() <= 3)
+    // This function is slightly modified version of the pseudocode in the slides to
+    // use in 3D. It is used to find distance between closest pair in 3D.
+    
+    if (px.getSize() <= 3) // If there are less than 4 points use brute force approach
         return px.distanceByPairwiseCompare();
     
-    Plane qx(px, LEFT);
-    Plane rx(px, RIGHT);
+    Plane qx(px, LEFT); // Left part
+    Plane rx(px, RIGHT); // Right part
     
-    Point middle = px[px.getSize()/2];
+    Point middle = px[px.getSize()/2]; // Middle point
     
-    double dl = distanceClosestPairRec3D(qx);
-    double dr = distanceClosestPairRec3D(rx);
-    double dist = dr < dl ? dr : dl;
+    double dl = distanceClosestPairRec3D(qx); // Distance of left part
+    double dr = distanceClosestPairRec3D(rx); // Distance of right part
+    double dist = dr < dl ? dr : dl; // Which part has less distance
     
-    vector<Point> S;
+    vector<Point> S; // Vector of strip between two parts
     for (int i = 0; i < px.getSize(); i++) {
+        // If point is in the interval of distance add it to the strip
         if(abs(px[i].getX() - middle.getX()) < dist)
             S.push_back(px[i]);
     }
     
-    Plane strip(S);
-    strip.sort(COMPARE_BY_Y);
+    Plane strip(S); // Create strip plane with
+    strip.sort(COMPARE_BY_Y); // Sort by y coordinates
     
+    // Find the smallest distance in the strip
     double distance2D = distanceClosestPairRec2D(strip);
     
-    if(dist > distance2D)
-        return distance2D;
-    
-    return dist;
+    // Return smallest distance
+    return dist > distance2D ? distance2D : dist;
 }
 
 double Plane::distanceClosestPairRec2D(const Plane &py) const {
+    // This function is very identical to the pseudocode in the slides. It is used to
+    // find distance between closest pair in 2D.
+    
     if (py.getSize() <= 3)
         return py.distanceByPairwiseCompare();
     
-    Point middle = py[py.getSize() / 2];
+    Point middle = py[py.getSize() / 2]; // Middle point
     
-    Plane qy(py, LEFT);
-    Plane ry(py, RIGHT);
+    Plane qy(py, LEFT); // Left part
+    Plane ry(py, RIGHT); // Right part
     
     double dl = distanceClosestPairRec2D(qy);
     double dr = distanceClosestPairRec2D(ry);
     double dist = dr < dl ? dr : dl;
     
-    vector<Point> S;
+    vector<Point> S; // Vector of strip between two parts
     for (int i = 0; i < py.getSize(); i++) {
+        // If point is in the interval of distance add it to the strip
         if(abs(py[i].getY()-middle.getY()) < dist)
             S.push_back(py[i]);
     }
     
-    Plane strip(S);
-    strip.sort(COMPARE_BY_Z);
+    Plane strip(S); // Vector of strip between two parts
+    strip.sort(COMPARE_BY_Z); // Sort strip by z coordinate
     int stripSize = strip.getSize();
+    // Find minimum distance in the strip
     for (int i = 0; i < stripSize; i++) {
+        // Calculate distances between points only in the d-distance interval
         for (int j = i+1; j < stripSize && (strip[j].getZ() - strip[i].getZ() < dist); j++) {
             double compare = distance(strip[i], strip[j]);
-            if(compare < dist)
+            if(compare < dist) // Smaller than distance
                 dist = compare;
         }
     }
+    
+    // Return smallest distance
     return dist;
 }
