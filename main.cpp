@@ -13,6 +13,7 @@
 #include <fstream>  // ifstream
 #include <iostream> // cout
 #include <iomanip>  // setprecision
+#include <limits>   // numeric_limits
 #include <sstream>  // stringstrem
 #include <string>   // string
 #include <vector>   // vector
